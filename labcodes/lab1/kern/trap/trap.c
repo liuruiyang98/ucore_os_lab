@@ -46,6 +46,30 @@ idt_init(void) {
       *     You don't know the meaning of this instruction? just google it! and check the libs/x86.h to know more.
       *     Notice: the argument of lidt is idt_pd. try to find it!
       */
+
+
+     /* LAB1 2016011396 : STEP 2 */
+    // 修饰符 extern 用在变量或者函数的声明前，用来说明“此变量/函数是在别处定义的，要在此处引用”。
+    extern uintptr_t __vectors[];   //声明__vertors[]
+
+    // 初始化 IDT 表项, 一共 256 项，使用宏 SETGATE(gate, istrap, sel, off, dpl) 进行初始化
+    // gata = idt[i]，istrap = 0（意味着为interrupt gate），sel = GD_KTEXT（mooc 视频）
+    // off = __vectors[i]（标号对应的地址为代码段偏移量)，dpl = DPL_KERNEL（访问权限）
+    int authority;
+    for (int index = 0; index < (int)( sizeof(idt) / sizeof(struct gatedesc) ); index++) {
+        if((index != T_SWITCH_TOK) && (index != T_SYSCALL)) {
+            SETGATE(idt[index], 0, GD_KTEXT, __vectors[index], DPL_KERNEL);
+        }
+        else { 
+            // 设置为从用户态切换到内核态中断和 SYSCALL 时权限为 DPL_USER ---- 参考 mooc 视频, gitbook 实验指导书, lab1_result, 学长往年代码
+            // KERNEL_CS：在执行ISR的时候CS段需要为内核态；
+            // DPL_USER：本中断可以在用户态进行调用。
+            SETGATE(idt[index], 0, KERNEL_CS, __vectors[index], DPL_USER);
+        }
+    }
+
+    // 使用lidt指令加载中断描述符表
+    lidt(&idt_pd);
 }
 
 static const char *
@@ -147,6 +171,14 @@ trap_dispatch(struct trapframe *tf) {
          * (2) Every TICK_NUM cycle, you can print some info using a funciton, such as print_ticks().
          * (3) Too Simple? Yes, I think so!
          */
+
+        /* LAB1 2016011396 : STEP 3 */
+        ticks ++;       // 全局变量 ticks 加一
+        //当 ticks 等于 100 的时候，输出 ticks，并重新置 ticks 等于 0
+        if (ticks == TICK_NUM) {
+            print_ticks();
+            ticks = 0;
+        }
         break;
     case IRQ_OFFSET + IRQ_COM1:
         c = cons_getc();
@@ -161,6 +193,42 @@ trap_dispatch(struct trapframe *tf) {
     case T_SWITCH_TOK:
         panic("T_SWITCH_** ??\n");
         break;
+    /************************************************************************************
+    case T_SWITCH_TOU:
+        // 学习参考 lab1_result 实现
+        // 首先判断是否当前处于用户态，如果不处于用户态，则可以实现状态转变
+        if (tf->tf_cs != USER_CS) {
+            struct trapframe temp_K2U;      // 首先构造一个临时的栈，在临时的栈上进行修改
+            temp_K2U = *tf;                 // 临时的栈等于当前的栈
+            temp_K2U.tf_cs = USER_CS;       // 设置当前代码段为用户态
+            temp_K2U.tf_ds = USER_DS;       // 设置当前数据段为用户态
+            temp_K2U.tf_es = USER_DS;
+            temp_K2U.tf_ss = USER_DS;
+            temp_K2U.tf_esp = (uint32_t)tf + sizeof(struct trapframe) - 8; // ESP为栈指针，用于指向栈的栈顶
+		
+            // set eflags, make sure ucore can use io under user mode.
+            // if CPL > IOPL, then cpu will generate a general protection.
+            temp_K2U.tf_eflags |= FL_IOPL_MASK;
+		
+            // set temporary stack
+            // then iret will jump to the right stack
+            *((uint32_t *)tf - 1) = (uint32_t)&temp_K2U;
+        }
+        break;
+    case T_SWITCH_TOK:
+        // 首先判断是否当前处于核心态，如果不处于核心态，则可以实现状态转变
+        if (tf->tf_cs != KERNEL_CS) {
+            struct trapframe* temp_U2K;
+            tf->tf_cs = KERNEL_CS;
+            tf->tf_ds = tf->tf_es = KERNEL_DS;
+            tf->tf_eflags &= ~FL_IOPL_MASK;
+            temp_U2K = (struct trapframe *)(tf->tf_esp - (sizeof(struct trapframe) - 8));
+            memmove(temp_U2K, tf, sizeof(struct trapframe) - 8);
+            *((uint32_t *)tf - 1) = (uint32_t)temp_U2K;
+        }
+        //panic("T_SWITCH_** ??\n");
+        break;
+    ************************************************************************************/
     case IRQ_OFFSET + IRQ_IDE1:
     case IRQ_OFFSET + IRQ_IDE2:
         /* do nothing */
