@@ -305,5 +305,31 @@ print_stackframe(void) {
       *           NOTICE: the calling funciton's return addr eip  = ss:[ebp+4]
       *                   the calling funciton's ebp = ss:[ebp]
       */
+     
+      /* LAB1 2016011396 ： STEP 1 */
+    uint32_t ebp = read_ebp();     // 获取当前的ebp
+    uint32_t eip = read_eip();     // 获取当前的eip
+
+    for (int i = 0; i < STACKFRAME_DEPTH && ebp != 0; i++) {
+        // 参考上面的输出函数，使用 cprintf 对 ebp 和 eip 的值进行 8 位 16 进制输出
+        cprintf("ebp:0x%08x eip:0x%08x", ebp, eip);
+
+        // 获取参数列表的首地址
+        uint32_t* args = (uint32_t *)ebp + 2;
+        // 依次输出参数信息
+        cprintf(" args:");
+        for (int arg_num = 0; arg_num < 4; arg_num++) {
+            cprintf("0x%08x ", *(args + arg_num));
+        }
+        cprintf("\n");
+
+        // 因为 eip 指向下一条执行的指令的地址，所以要 eip - 1，输出当前的调用的函数名称和所在行数信息 
+        print_debuginfo(eip - 1);
+
+        // 弹出调用堆栈帧，调用函数的返回地址 eip = ss:[ebp+4]，调用函数的 ebp = ss:[ebp]
+        // 所以将 (uint32_t*)ebp 视作调用栈地址，读取其中内容即为新的 ebp，其下一个则为新的 eip
+        eip = *((uint32_t*)ebp + 1);
+        ebp = *((uint32_t*)ebp);
+    }
 }
 
