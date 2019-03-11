@@ -55,8 +55,8 @@ idt_init(void) {
     // 初始化 IDT 表项, 一共 256 项，使用宏 SETGATE(gate, istrap, sel, off, dpl) 进行初始化
     // gata = idt[i]，istrap = 0（意味着为interrupt gate），sel = GD_KTEXT（mooc 视频）
     // off = __vectors[i]（标号对应的地址为代码段偏移量)，dpl = DPL_KERNEL（访问权限）
-    int authority;
-    for (int index = 0; index < (int)( sizeof(idt) / sizeof(struct gatedesc) ); index++) {
+    int authority, index;
+    for (index = 0; index < (int)( sizeof(idt) / sizeof(struct gatedesc) ); index++) {
         if((index != T_SWITCH_TOK) && (index != T_SYSCALL)) {
             SETGATE(idt[index], 0, GD_KTEXT, __vectors[index], DPL_KERNEL);
         }
