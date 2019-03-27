@@ -102,6 +102,31 @@ alloc_proc(void) {
      *       uint32_t flags;                             // Process flag
      *       char name[PROC_NAME_LEN + 1];               // Process name
      */
+
+
+        //LAB4:EXERCISE1 2016011396
+        proc->state = PROC_UNINIT;              // 进程状态 state 设置为“初始”态 PROC_UNINIT
+        proc->pid = -1;                         // 进程号 pid 设置为 -1，这表示进程的标识号还没有办好
+        proc->runs = 0;                         // 进程的运行次数 runs 设置为 0
+        proc->kstack = 0;                       // 内核栈地址 kstack 初始化为 0
+        proc->need_resched = 0;                 // 是否需要被调度 need_resched 初始化为 0 （在构建好内存块后会主动对其进行修改）
+        proc->parent = NULL;                    // 父进程指针 parent 初始化为 NULL
+        proc->mm = NULL;                        // 内存管理指针 mm 初始化为 NULL
+        
+        // 初始化(清空上下文)
+        proc->context.ebp = 0;
+        proc->context.ebx = 0;
+        proc->context.ecx = 0;
+        proc->context.edi = 0;
+        proc->context.edx = 0;
+        proc->context.eip = 0;
+        proc->context.esi = 0;
+        proc->context.esp = 0;
+
+        proc->tf = NULL;
+        proc->cr3 = boot_cr3;                   // 页表起始地址 cr3 初始化为 boot_cr3，代表使用内核页目录表的基址
+        proc->flags = 0;                        // 进程标志 flags 初始化为 0
+        memset(proc->name, 0, PROC_NAME_LEN);   // 进程名 name 初始化为空字符串
     }
     return proc;
 }
@@ -296,6 +321,39 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     //    5. insert proc_struct into hash_list && proc_list
     //    6. call wakeup_proc to make the new child process RUNNABLE
     //    7. set ret vaule using child proc's pid
+
+    //LAB4:EXERCISE2 2016011396
+    proc = alloc_proc();                        // 调用 alloc_proc 分配并初始化进程控制块
+    if (proc == NULL) {                         // 分配内存失败则返回
+        goto  fork_out;
+    }
+    if (setup_kstack(proc) != 0) {              // 调用 setup_kstack 分配并初始化内核栈
+        goto bad_fork_cleanup_proc;             // 只用清理程序控制块
+    }             
+    if (copy_mm(clone_flags, proc) != 0) {      // 调用 copy_mm 复制或共享进程内存管理结构
+        goto bad_fork_cleanup_kstack;           // 需要清理内核栈和程序控制块
+    } 
+    copy_thread(proc, stack, tf);               // 调用 copy_thread 设置进程在内核（将来也包括用户态）正常运行和调度所需的中断帧和执行上下文
+    
+    // =================================================================================================================== //
+    // 这一部分参考 lab4_result 的实现以及 https://blog.csdn.net/tangyuanzong/article/details/78692050 和 黄家辉学长往年报告中的解释完成
+    // 中断可能由时钟产生，会使得调度器工作，为了避免产生错误，需要屏蔽中断
+    bool intr_flag;
+    local_intr_save(intr_flag);                     // 屏蔽中断，intr_flag 置为 1
+    {
+        // 建立新的哈希链表
+        proc->pid = get_pid();                      // 获取当前进程PID
+        hash_proc(proc);                            // 将 proc 加入哈希链 hash_list
+        list_add(&proc_list, &(proc->list_link));   // 将 proc 加入进程链表 proc_list
+        nr_process ++;                              // 进程数加一
+    }
+    local_intr_restore(intr_flag);                  // 恢复中断
+    // =================================================================================================================== //
+
+    wakeup_proc(proc);                              // 进程已经准备好执行了，把进程状态设置为“就绪”态
+    ret = proc->pid;                                // 返回当前进程的PID
+    return ret;
+
 fork_out:
     return ret;
 
