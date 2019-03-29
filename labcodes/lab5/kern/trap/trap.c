@@ -65,19 +65,24 @@ idt_init(void) {
     // 初始化 IDT 表项, 一共 256 项，使用宏 SETGATE(gate, istrap, sel, off, dpl) 进行初始化
     // gata = idt[i]，istrap = 0（意味着为interrupt gate），sel = GD_KTEXT（mooc 视频）
     // off = __vectors[i]（标号对应的地址为代码段偏移量)，dpl = DPL_KERNEL（访问权限）
-    int authority, index;
-    for (index = 0; index < (int)( sizeof(idt) / sizeof(struct gatedesc) ); index++) {
-        if((index != T_SWITCH_TOK) && (index != T_SYSCALL)) {
-            SETGATE(idt[index], 0, GD_KTEXT, __vectors[index], DPL_KERNEL);
-        }
-        else { 
-            // Lab5 new 
-            // 设置为从用户态切换到内核态中断和 SYSCALL 时权限为 DPL_USER ---- 参考 mooc 视频, gitbook 实验指导书, lab1_result, 学长往年代码
-            // KERNEL_CS：在执行ISR的时候CS段需要为内核态；
-            // DPL_USER：本中断可以在用户态进行调用。
-            SETGATE(idt[index], 1, GD_KTEXT, __vectors[index], DPL_USER);
-        }
+    // int authority, index;
+    // for (index = 0; index < (int)( sizeof(idt) / sizeof(struct gatedesc) ); index++) {
+    //     if((index != T_SWITCH_TOK) && (index != T_SYSCALL)) {
+    //         SETGATE(idt[index], 0, GD_KTEXT, __vectors[index], DPL_KERNEL);
+    //     }
+    //     else { 
+    //         // Lab5 new 
+    //         // 设置为从用户态切换到内核态中断和 SYSCALL 时权限为 DPL_USER ---- 参考 mooc 视频, gitbook 实验指导书, lab1_result, 学长往年代码
+    //         // KERNEL_CS：在执行ISR的时候CS段需要为内核态；
+    //         // DPL_USER：本中断可以在用户态进行调用。
+    //         SETGATE(idt[index], 1, GD_KTEXT, __vectors[index], DPL_USER);
+    //     }
+    // }
+    int i;
+    for (i = 0; i < sizeof(idt) / sizeof(struct gatedesc); i ++) {
+        SETGATE(idt[i], 0, GD_KTEXT, __vectors[i], DPL_KERNEL);
     }
+    SETGATE(idt[T_SYSCALL], 1, GD_KTEXT, __vectors[T_SYSCALL], DPL_USER);   //设置相应的中断门
 
     // 使用lidt指令加载中断描述符表
     lidt(&idt_pd);
@@ -254,11 +259,13 @@ trap_dispatch(struct trapframe *tf) {
         ticks ++;       // 全局变量 ticks 加一
         //当 ticks 等于 100 的时候，输出 ticks，并重新置 ticks 等于 0
         if (ticks == TICK_NUM) {
-            print_ticks();
-            ticks = 0;
-            // lab5 new
+            // print_ticks();
+            // ticks = 0;
+            // // lab5 new
+            // assert(current != NULL);
+            // current->need_resched = 1;  // 时间片使用完毕，需要重新调度
             assert(current != NULL);
-            current->need_resched = 1;  // 时间片使用完毕，需要重新调度
+            current->need_resched = 1;//时间片用完设置为需要调度
         }
         break;
     case IRQ_OFFSET + IRQ_COM1:

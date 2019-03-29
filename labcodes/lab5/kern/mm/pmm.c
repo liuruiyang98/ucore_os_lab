@@ -535,10 +535,17 @@ copy_range(pde_t *to, pde_t *from, uintptr_t start, uintptr_t end, bool share) {
          */
 
         // LAB5:EXERCISE2 201601196
-        void* src_kvaddr = page2kva(page);              // 找到父进程的内核虚拟页地址  
-        void* dst_kvaddr = page2kva(npage);             // 找到子进程的内核虚拟页地址 
-        memcpy(dst_kvaddr, src_kvaddr, PGSIZE);         // 复制父进程对应页面到子进程对应页面
-        page_insert(to, npage, start, perm);            // call get_pte to find process A's pte according to the addr start，所以start是偏移量，perm 是权限
+        // void* src_kvaddr = page2kva(page);              // 找到父进程的内核虚拟页地址  
+        // void* dst_kvaddr = page2kva(npage);             // 找到子进程的内核虚拟页地址 
+        // memcpy(dst_kvaddr, src_kvaddr, PGSIZE);         // 复制父进程对应页面到子进程对应页面
+        // page_insert(to, npage, start, perm);            // call get_pte to find process A's pte according to the addr start，所以start是偏移量，perm 是权限
+        void * src_kvaddr = page2kva(page);//找寻父进程的内核虚拟页地址  
+        void * dst_kvaddr = page2kva(npage);//找寻子进程的内核虚拟页地址  
+
+        memcpy(dst_kvaddr, src_kvaddr, PGSIZE);//复制父进程到子进程  
+
+        ret = page_insert(to, npage, start, perm);//建立物理地址与子进程的页地址起始位置的映射关系
+
         assert(ret == 0);
         }
         start += PGSIZE;
