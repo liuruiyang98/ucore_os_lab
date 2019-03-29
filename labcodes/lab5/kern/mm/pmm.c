@@ -363,6 +363,8 @@ get_pte(pde_t *pgdir, uintptr_t la, bool create) {
      *   PTE_W           0x002                   // page table/directory entry flags bit : Writeable
      *   PTE_U           0x004                   // page table/directory entry flags bit : User can access
      */
+
+    /* LAB2 EXERCISE 2: 2016011396 */
 #if 0
     pde_t *pdep = NULL;   // (1) find page directory entry
     if (0) {              // (2) check if entry is not present
@@ -375,6 +377,25 @@ get_pte(pde_t *pgdir, uintptr_t la, bool create) {
     }
     return NULL;          // (8) return page table entry
 #endif
+
+    pde_t *pdep = pgdir + PDX(la);                              // （1）根据虚拟地址的索引和第一级页表的基地址找到对应的表项
+    if ((*pdep & PTE_P) != 1) {                                 // （2）检查条目是否存在，如果条目不存在，则需要根据 create 参数的值来处理是否创建新的二级页表
+        if (!create) {                                          // （3）如果 create 参数为 0，则 get_pte 返回 NULL
+            return NULL; 
+        } else {                                                // （3）如果 create 参数不为 0，则 get_pte 需要申请一个新的物理页
+            struct Page *page = alloc_page();                   // （3）调用 alloc_page 申请一个新的物理页
+            if (page == NULL) {                                 // （3）调用 alloc_page 申请一个新的物理页，如果申请失败返回 NULL
+                return NULL;
+            } else {
+                set_page_ref(page, 1);                          // （4）设置虚拟页到物理页的映射关系的个数为 1
+                uintptr_t pa = page2pa(page);                   // （5）获取此页管理的内存的物理地址
+                uintptr_t page_la = KADDR(pa);                  // （5）获取页面的线性地址。
+                memset(page_la, 0, PGSIZE);                     // （6）清除页面内容，新申请的页必须全部设定为零，因为这个页所代表的虚拟地址都没有被映射
+                *pdep = (pa & ~0x0FFF) | PTE_P | PTE_W | PTE_U; // （7）设置页目录项的权限
+            }
+        } 
+    }
+    return ((pte_t *)KADDR(PDE_ADDR(*pdep))) + PTX(la);         // （8）返回页表条目，参考 lab2_reslut
 }
 
 //get_page - get related Page struct for linear address la using PDT pgdir
@@ -420,6 +441,17 @@ page_remove_pte(pde_t *pgdir, uintptr_t la, pte_t *ptep) {
                                   //(6) flush tlb
     }
 #endif
+
+    /* LAB2 EXERCISE 3: 2016011396 */
+    if (((*ptep) & PTE_P) == 1) {               // (1) 检查条目是否存在
+        struct Page *page = pte2page(*ptep);    // (2) 从 ptep 的值获取相应的页
+
+        if (page_ref_dec(page) == 0) {          // (3) 如果此时的页面引用为 0，需要对其进行释放
+            free_page(page);                    // (4) 释放该页
+        }
+        (*ptep) = 0;                            // (5) 清除第二页表格条目，一个 pte 占存储空间的 32 位，可以当做一个 32 位整型来处理。
+        tlb_invalidate(pgdir, la);              // (6) 使TLB条目无效，但仅当正在编辑的页表是处理器当前正在使用的页表时。 
+    }
 }
 
 void
@@ -501,6 +533,12 @@ copy_range(pde_t *to, pde_t *from, uintptr_t start, uintptr_t end, bool share) {
          * (3) memory copy from src_kvaddr to dst_kvaddr, size is PGSIZE
          * (4) build the map of phy addr of  nage with the linear addr start
          */
+
+        // LAB5:EXERCISE2 201601196
+        void* src_kvaddr = page2kva(page);              // 找到父进程的内核虚拟页地址  
+        void* dst_kvaddr = page2kva(npage);             // 找到子进程的内核虚拟页地址 
+        memcpy(dst_kvaddr, src_kvaddr, PGSIZE);         // 复制父进程对应页面到子进程对应页面
+        page_insert(to, npage, start, perm);            // call get_pte to find process A's pte according to the addr start，所以start是偏移量，perm 是权限
         assert(ret == 0);
         }
         start += PGSIZE;

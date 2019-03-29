@@ -493,6 +493,46 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
         }
    }
 #endif
+    /* LAB3 EXERCISE 1:  2016011396 */
+    ptep = get_pte(mm->pgdir, addr, 1);         // 调用 get_pte 查找到二级页表入口，如果二级页表不存在则生成二级页表，全置0
+    if (ptep == NULL) {                         // 如果查找页表失败
+        // 输出参考 lab3_answer
+        cprintf("get_pte in do_pgfault failed\n");
+        goto failed;
+    } else if (*ptep == 0) {                    // 页表项全为0，则需要分配一个物理页并且将物理地址和线性地址对应
+        // no Struct Page !!!!
+        // 此处的perm应该对应 the permission of this Page which is setted in related pte
+        struct Page *page = NULL;
+        if ((page = pgdir_alloc_page(mm->pgdir, addr, perm)) == NULL) {
+            cprintf("pgdir_alloc_page in do_pgfault failed\n");
+            goto failed;
+        }
+    } else {                                    // 需要交换页面
+        /* LAB3 EXERCISE 2:  2016011396 */
+        if(swap_init_ok) {                      // 如果swap 磁盘可以交换页面
+            struct Page *page = NULL;
+            int swap_flag = 1;
+            swap_flag = swap_in(mm, addr, &page);                   // (1)将swap读到的页面写入page
+            if((swap_flag != 0) || (page == NULL)) {                // 仿照 lab3_answre 练习1，增加程序的鲁棒性
+                cprintf("swap_in in do_pgfault failed\n");
+                goto failed;
+            }
+            if (page_insert(mm->pgdir, page, addr, perm) != 0) {    // (2)建立虚拟地址和物理地址之间的对应关系
+                cprintf("page_insert in do_pgfault failed\n");
+                goto failed;
+            }
+            if (swap_map_swappable(mm, addr, page, 1) != 0) {       // (3)将此页面设置为可交换的 
+                cprintf("swap_map_swappable in do_pgfault failed\n");
+                goto failed;
+            }
+            page->pra_vaddr = addr;                                 // pra_vaddr可以用来记录此物理页对应的虚拟页起始地址
+        } else {
+            cprintf("no swap_init_ok but ptep is %x, failed\n",*ptep);
+            goto failed;
+        }
+    }
+
+
    ret = 0;
 failed:
     return ret;
