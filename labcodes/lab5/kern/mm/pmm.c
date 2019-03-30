@@ -375,6 +375,17 @@ get_pte(pde_t *pgdir, uintptr_t la, bool create) {
     }
     return NULL;          // (8) return page table entry
 #endif
+    pde_t *pdep = pgdir + PDX(la);   // (1) find page directory entry
+    if (((*pdep) & PTE_P) != 1) {              // (2) check if entry is not present
+        if (!create) return NULL;                  // (3) check if creating is needed, then alloc page for page table
+        struct Page* ptPage;
+        assert(ptPage = alloc_page());
+        set_page_ref(ptPage, 1);         // (4) set page reference
+        uintptr_t pa = page2pa(ptPage); // (5) get linear address of page
+        memset(KADDR(pa), 0, PGSIZE);   // (6) clear page content using memset
+        *pdep = ((pa & ~0x0FFF) | PTE_U | PTE_W | PTE_P);                  // (7) set page directory entry's permission
+    }
+    return ((pte_t*)KADDR((*pdep) & ~0xFFF)) + PTX(la);          // (8) return page table entry
 }
 
 //get_page - get related Page struct for linear address la using PDT pgdir
@@ -420,6 +431,15 @@ page_remove_pte(pde_t *pgdir, uintptr_t la, pte_t *ptep) {
                                   //(6) flush tlb
     }
 #endif
+    if (((*ptep) & PTE_P) == 1) {                      //(1) check if this page table entry is present
+        struct Page *page = pte2page(*ptep); //(2) find corresponding page to pte
+        page_ref_dec(page);                          //(3) decrease page reference
+        if (page->ref == 0) {
+        	free_page(page);           //(4) and free this page when page reference reachs 0
+        }
+        (*ptep) = 0;                          //(5) clear second page table entry
+        tlb_invalidate(pgdir, la);                          //(6) flush tlb
+    }
 }
 
 void
@@ -501,6 +521,10 @@ copy_range(pde_t *to, pde_t *from, uintptr_t start, uintptr_t end, bool share) {
          * (3) memory copy from src_kvaddr to dst_kvaddr, size is PGSIZE
          * (4) build the map of phy addr of  nage with the linear addr start
          */
+        uintptr_t src_kvaddr = page2kva(page);
+        uintptr_t dst_kvaddr = page2kva(npage);
+        memcpy(dst_kvaddr, src_kvaddr, PGSIZE);
+        page_insert(to, npage, start, perm);
         assert(ret == 0);
         }
         start += PGSIZE;

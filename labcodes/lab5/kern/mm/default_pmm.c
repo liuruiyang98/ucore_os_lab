@@ -106,17 +106,20 @@ default_init(void) {
 
 static void
 default_init_memmap(struct Page *base, size_t n) {
-    assert(n > 0);
-    struct Page *p = base;
-    for (; p != base + n; p ++) {
-        assert(PageReserved(p));
-        p->flags = p->property = 0;
-        set_page_ref(p, 0);
-    }
-    base->property = n;
-    SetPageProperty(base);
-    nr_free += n;
-    list_add(&free_list, &(base->page_link));
+	assert(n > 0);
+	struct Page *p = base;
+	for (; p != base + n; p ++) {
+		// Before: the page must have been set reserved in page_init.
+		assert(PageReserved(p));
+		// Initialize flags, property and ref
+		p->flags = p->property = 0;
+		set_page_ref(p, 0);
+	}
+	// The base page is the start of continuous free pages.
+	base->property = n;
+	SetPageProperty(base);
+	nr_free += n;
+	list_add_before(&free_list, &(base->page_link));
 }
 
 static struct Page *
@@ -135,12 +138,20 @@ default_alloc_pages(size_t n) {
         }
     }
     if (page != NULL) {
-        list_del(&(page->page_link));
+    	for (int i = 1; i < n; ++ i) {
+    		struct Page *p = page + i;
+    		// assert(!PageReserved(p));
+    		ClearPageProperty(p);
+    		p->property = 0;
+    		set_page_ref(p, 0);
+    	}
         if (page->property > n) {
             struct Page *p = page + n;
             p->property = page->property - n;
-            list_add(&free_list, &(p->page_link));
-    }
+            SetPageProperty(p);
+            list_add(&(page->page_link), &(p->page_link));
+        }
+        list_del(&(page->page_link));
         nr_free -= n;
         ClearPageProperty(page);
     }
@@ -159,23 +170,43 @@ default_free_pages(struct Page *base, size_t n) {
     base->property = n;
     SetPageProperty(base);
     list_entry_t *le = list_next(&free_list);
+    struct Page *merge_previous = NULL;
+    struct Page *merge_next = NULL;
     while (le != &free_list) {
         p = le2page(le, page_link);
         le = list_next(le);
         if (base + base->property == p) {
-            base->property += p->property;
-            ClearPageProperty(p);
-            list_del(&(p->page_link));
+        	merge_next = p;
+        	break;
         }
         else if (p + p->property == base) {
-            p->property += base->property;
-            ClearPageProperty(base);
-            base = p;
-            list_del(&(p->page_link));
+            merge_previous = p;
         }
+        if (p > base) break;
     }
     nr_free += n;
-    list_add(&free_list, &(base->page_link));
+    // Try to merge base with merge_previous and merge_next.
+    if (merge_previous != NULL) {
+    	merge_previous->property += base->property;
+    	ClearPageProperty(base);
+    	base = merge_previous;
+    }
+    if (merge_next != NULL) {
+    	base->property += merge_next->property;
+    	ClearPageProperty(merge_next);
+    	if (merge_previous == NULL) {
+    		list_add_before(&(merge_next->page_link), &(base->page_link));
+    	}
+
+    	list_del(&(merge_next->page_link));
+    }
+    if (merge_next == NULL && merge_previous == NULL) {
+    	if (p > base && p != (base + n)) {
+    		list_add_before(&(p->page_link), &(base->page_link));
+    	} else {
+    		list_add_before(&free_list, &(base->page_link));
+    	}
+    }
 }
 
 static size_t
