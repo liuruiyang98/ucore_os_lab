@@ -493,6 +493,7 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
         }
    }
 #endif
+    /* LAB3 EXERCISE 1:  2016011396 */
     ptep = get_pte(mm->pgdir, addr, 1);         // 调用 get_pte 查找到二级页表入口，如果二级页表不存在则生成二级页表，全置0
     if (ptep == NULL) {                         // 如果查找页表失败
         // 输出参考 lab3_answer
@@ -530,6 +531,8 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
             goto failed;
         }
     }
+
+
    ret = 0;
 failed:
     return ret;

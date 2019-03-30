@@ -51,7 +51,10 @@ _fifo_map_swappable(struct mm_struct *mm, uintptr_t addr, struct Page *page, int
     //record the page access situlation
     /*LAB3 EXERCISE 2: YOUR CODE*/ 
     //(1)link the most recent arrival page at the back of the pra_list_head qeueue.
-    list_add_before(head, entry);
+    
+    /*LAB3 EXERCISE 2: 2016011396*/ 
+    // 将最近使用的页面添加到链表次序的头部，即将 entry 添加到 head 后面
+    list_add_after(head, entry);
     return 0;
 }
 /*
@@ -68,10 +71,15 @@ _fifo_swap_out_victim(struct mm_struct *mm, struct Page ** ptr_page, int in_tick
      /*LAB3 EXERCISE 2: YOUR CODE*/ 
      //(1)  unlink the  earliest arrival page in front of pra_list_head qeueue
      //(2)  assign the value of *ptr_page to the addr of this page
-    list_entry_t *le = head->next;
-    struct Page* p = le2page(le, pra_page_link);
-    *ptr_page = p;
-    list_del(le);
+    
+    /*LAB3 EXERCISE 2: 2016011396*/ 
+    list_entry_t *to_delete = head->prev;
+    assert(to_delete != NULL && head != to_delete);
+    // 将进来最早的页面从队列中删除      
+    list_del(to_delete);
+
+    // le2page 宏可以根据链表元素获得对应的 Page* p
+    assert((*ptr_page = le2page(to_delete, pra_page_link)) != NULL);    // 将 *ptr_page 指向 page
      return 0;
 }
 

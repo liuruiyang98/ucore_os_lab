@@ -56,17 +56,31 @@ idt_init(void) {
      /* LAB5 YOUR CODE */ 
      //you should update your lab1 code (just add ONE or TWO lines of code), let user app to use syscall to get the service of ucore
      //so you should setup the syscall interrupt gate in here
-    extern uintptr_t __vectors[];
-    int i;
-	for (i = 0; i < 256; ++ i) {
-//		cprintf("vectors %d: 0x%08x\n", i, __vectors[i]);
-		if (i == T_SYSCALL || i == T_SWITCH_TOK) {
-			SETGATE(idt[i], 1, KERNEL_CS, __vectors[i], DPL_USER);
-		} else {
-			SETGATE(idt[i], 0, KERNEL_CS, __vectors[i], DPL_KERNEL);
-		}
-	}
-	lidt(&idt_pd);
+
+    /* LAB1 2016011396 : STEP 2 */
+    /* LAB5 2016011396 */ 
+    // 修饰符 extern 用在变量或者函数的声明前，用来说明“此变量/函数是在别处定义的，要在此处引用”。
+    extern uintptr_t __vectors[];   //声明__vertors[]
+
+    // 初始化 IDT 表项, 一共 256 项，使用宏 SETGATE(gate, istrap, sel, off, dpl) 进行初始化
+    // gata = idt[i]，istrap = 0（意味着为interrupt gate），sel = GD_KTEXT（mooc 视频）
+    // off = __vectors[i]（标号对应的地址为代码段偏移量)，dpl = DPL_KERNEL（访问权限）
+    int authority, index;
+    for (index = 0; index < (int)( sizeof(idt) / sizeof(struct gatedesc) ); index++) {
+        if((index != T_SWITCH_TOK) && (index != T_SYSCALL)) {
+            SETGATE(idt[index], 0, GD_KTEXT, __vectors[index], DPL_KERNEL);
+        }
+        else { 
+            // Lab5 new 
+            // 设置为从用户态切换到内核态中断和 SYSCALL 时权限为 DPL_USER ---- 参考 mooc 视频, gitbook 实验指导书, lab1_result, 学长往年代码
+            // KERNEL_CS：在执行ISR的时候CS段需要为内核态；
+            // DPL_USER：本中断可以在用户态进行调用。
+            SETGATE(idt[index], 1, GD_KTEXT, __vectors[index], DPL_USER);
+        }
+    }
+
+    // 使用lidt指令加载中断描述符表
+    lidt(&idt_pd);
 }
 
 static const char *
@@ -234,11 +248,18 @@ trap_dispatch(struct trapframe *tf) {
         /* you should upate you lab1 code (just add ONE or TWO lines of code):
          *    Every TICK_NUM cycle, you should set current process's current->need_resched = 1
          */
-        ticks ++;
-		if (ticks % TICK_NUM == 0) {
-			// print_ticks(); This will make grade fail
-			current->need_resched = 1;
-		}
+  
+        /* LAB1 2016011396 : STEP 3 */
+        /* LAB5 2016011396 */
+        ticks ++;       // 全局变量 ticks 加一
+        //当 ticks 等于 100 的时候，输出 ticks，并重新置 ticks 等于 0
+        if (ticks == TICK_NUM) {
+            //print_ticks();            // 不应该有输出，会降低低分
+            ticks = 0;
+            // lab5 new
+            assert(current != NULL);
+            current->need_resched = 1;  // 时间片使用完毕，需要重新调度
+        }
         break;
     case IRQ_OFFSET + IRQ_COM1:
         c = cons_getc();
