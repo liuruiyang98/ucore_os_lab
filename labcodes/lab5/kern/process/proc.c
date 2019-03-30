@@ -109,52 +109,6 @@ alloc_proc(void) {
      *       uint32_t wait_state;                        // waiting state
      *       struct proc_struct *cptr, *yptr, *optr;     // relations between processes
 	 */
-
-
-        //LAB4:EXERCISE1 2016011396
-        //LAB5:EXERCISE0 2016011396 (update LAB4 steps)
-        // proc->state = PROC_UNINIT;              // 进程状态 state 设置为“初始”态 PROC_UNINIT
-        // proc->pid = -1;                         // 进程号 pid 设置为 -1，这表示进程的标识号还没有办好
-        // proc->runs = 0;                         // 进程的运行次数 runs 设置为 0
-        // proc->kstack = 0;                       // 内核栈地址 kstack 初始化为 0
-        // proc->need_resched = 0;                 // 是否需要被调度 need_resched 初始化为 0 （在构建好内存块后会主动对其进行修改）
-        // proc->parent = NULL;                    // 父进程指针 parent 初始化为 NULL
-        // proc->mm = NULL;                        // 内存管理指针 mm 初始化为 NULL
-        
-        // // 初始化(清空上下文)
-        // proc->context.ebp = 0;
-        // proc->context.ebx = 0;
-        // proc->context.ecx = 0;
-        // proc->context.edi = 0;
-        // proc->context.edx = 0;
-        // proc->context.eip = 0;
-        // proc->context.esi = 0;
-        // proc->context.esp = 0;
-
-        // proc->tf = NULL;
-        // proc->cr3 = boot_cr3;                   // 页表起始地址 cr3 初始化为 boot_cr3，代表使用内核页目录表的基址
-        // proc->flags = 0;                        // 进程标志 flags 初始化为 0
-        // memset(proc->name, 0, PROC_NAME_LEN);   // 进程名 name 初始化为空字符串
-        
-        // //new in lab5
-        // proc->wait_state = 0;                   //  PCB 新增的条目，初始化进程等待状态
-        // proc->cptr = NULL;
-        // proc->yptr = NULL;
-        // proc->optr = NULL;
-        proc->state = PROC_UNINIT;//设置进程为未初始化状态
-        proc->pid = -1;          //未初始化的进程id=-1
-        proc->runs = 0;          //初始化时间片
-        proc->kstack = 0;      //初始化内存栈的地址
-        proc->need_resched = 0;   //是否需要调度设为不需要
-        proc->parent = NULL;      //置空父节点
-        proc->mm = NULL;      //置空虚拟内存
-        memset(&(proc->context), 0, sizeof(struct context));//初始化上下文
-        proc->tf = NULL;      //中断帧指针设置为空
-        proc->cr3 = boot_cr3;      //页目录设为内核页目录表的基址
-        proc->flags = 0;      //初始化标志位
-        memset(proc->name, 0, PROC_NAME_LEN);//置空进程名
-        proc->wait_state = 0;  //初始化进程等待状态  
-        proc->cptr = proc->optr = proc->yptr = NULL;//进程相关指针初始化  
     }
     return proc;
 }
@@ -449,75 +403,7 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
 	*    update step 1: set child proc's parent to current process, make sure current process's wait_state is 0
 	*    update step 5: insert proc_struct into hash_list && proc_list, set the relation links of process
     */
-
-    //LAB4:EXERCISE2 2016011396
-    //LAB5:EXERCISE0 2016011396 (update LAB4 steps)
-    // proc = alloc_proc();                        // 调用 alloc_proc 分配并初始化进程控制块
-    // if (proc == NULL) {                         // 分配内存失败则返回
-    //     goto  fork_out;
-    // }
-
-    // proc->parent = current;                     // update step 1: set child proc's parent to current process
-    // assert(current->wait_state == 0);           // update step 1: make sure current process's wait_state is 0
-
-    // if (setup_kstack(proc) != 0) {              // 调用 setup_kstack 分配并初始化内核栈
-    //     goto bad_fork_cleanup_proc;             // 只用清理程序控制块
-    // }             
-    // if (copy_mm(clone_flags, proc) != 0) {      // 调用 copy_mm 复制或共享进程内存管理结构
-    //     goto bad_fork_cleanup_kstack;           // 需要清理内核栈和程序控制块
-    // } 
-    // copy_thread(proc, stack, tf);               // 调用 copy_thread 设置进程在内核（将来也包括用户态）正常运行和调度所需的中断帧和执行上下文
-    
-    // // =================================================================================================================== //
-    // // 这一部分参考 lab4_result 的实现以及 https://blog.csdn.net/tangyuanzong/article/details/78692050 和 黄家辉学长往年报告中的解释完成
-    // // 中断可能由时钟产生，会使得调度器工作，为了避免产生错误，需要屏蔽中断
-    // bool intr_flag;
-    // local_intr_save(intr_flag);                     // 屏蔽中断，intr_flag 置为 1
-    // {
-    //     // 建立新的哈希链表
-    //     proc->pid = get_pid();                      // 获取当前进程PID
-    //     hash_proc(proc);                            // 将 proc 加入哈希链 hash_list
-
-    //     set_links(proc);                            // update step 5: insert proc_struct into hash_list && proc_list, set the relation links of process
-    //     // list_add(&proc_list, &(proc->list_link));   // 将 proc 加入进程链表 proc_list
-    //     // nr_process ++;                              // 进程数加一
-    // }
-    // local_intr_restore(intr_flag);                  // 恢复中断
-    // // =================================================================================================================== //
-
-    // wakeup_proc(proc);                              // 进程已经准备好执行了，把进程状态设置为“就绪”态
-    // ret = proc->pid;                                // 返回当前进程的PID
-    // return ret;
-    if ((proc = alloc_proc()) == NULL)
-    {
-        goto fork_out;
-    }
-    //设置父节点为当前进程
-    proc->parent = current;
-    assert(current->wait_state == 0);//确保当前进程正在等待
-    //分配内核栈
-    if (setup_kstack(proc) != 0) {
-        goto bad_fork_cleanup_proc;
-    }
-    //调用copy_mm()函数复制父进程的内存信息到子进程
-    if (copy_mm(clone_flags, proc) != 0) {
-        goto bad_fork_cleanup_kstack;
-    }
-    //调用copy_thread()函数复制父进程的中断帧和上下文信息
-    copy_thread(proc, stack, tf);
-
-    bool intr_flag;
-    local_intr_save(intr_flag);
-    {
-        proc->pid = get_pid();
-        hash_proc(proc);//将新进程加入hash_list
-        set_links(proc);//执行set_links函数，实现设置相关进程链接
-    }
-    local_intr_restore(intr_flag);
-    //唤醒进程，等待调度
-    wakeup_proc(proc);
-    //返回子进程的pid
-    ret = proc->pid;
+	
 fork_out:
     return ret;
 
@@ -716,22 +602,6 @@ load_icode(unsigned char *binary, size_t size) {
      *          tf_eip should be the entry point of this binary program (elf->e_entry)
      *          tf_eflags should be set to enable computer to produce Interrupt
      */
-
-    // LAB5:EXERCISE1 2016011396
-    // tf->tf_cs = USER_CS;            // 用户态的代码段寄存器，需要设置状态为 USER_CS
-    // tf->tf_ds = USER_DS;            // 用户态数据段寄存器，需要设置状态为 USER_DS
-    // tf->tf_es = USER_DS;            // 用户态数据段寄存器，需要设置状态为 USER_DS
-    // tf->tf_ss = USER_DS;            // 用户态数据段寄存器，需要设置状态为 USER_DS
-    // tf->tf_esp = USTACKTOP;         // 用户态的栈指针，需要设置为 USTACKTOP（0xB0000000）
-    // tf->tf_eip = elf->e_entry;      // 用户态的代码指针，需要设置为用户程序的起始地址
-    // tf->tf_eflags = FL_IF;          // FL_IF为中断打开状态 Interrupt Flag (mmu.h)
-    tf->tf_cs = USER_CS;
-    tf->tf_ds = tf->tf_es = tf->tf_ss = USER_DS;
-    tf->tf_esp = USTACKTOP;//0xB0000000
-    tf->tf_eip = elf->e_entry;
-    tf->tf_eflags = FL_IF;//FL_IF为中断打开状态 
-
-
     ret = 0;
 out:
     return ret;
