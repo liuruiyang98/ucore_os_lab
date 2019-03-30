@@ -57,7 +57,8 @@ idt_init(void) {
      //you should update your lab1 code (just add ONE or TWO lines of code), let user app to use syscall to get the service of ucore
      //so you should setup the syscall interrupt gate in here
     extern uintptr_t __vectors[];
-	for (int i = 0; i < 256; ++ i) {
+    int i;
+	for (i = 0; i < 256; ++ i) {
 //		cprintf("vectors %d: 0x%08x\n", i, __vectors[i]);
 		if (i == T_SYSCALL || i == T_SWITCH_TOK) {
 			SETGATE(idt[i], 1, KERNEL_CS, __vectors[i], DPL_USER);

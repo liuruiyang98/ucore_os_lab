@@ -138,7 +138,8 @@ default_alloc_pages(size_t n) {
         }
     }
     if (page != NULL) {
-    	for (int i = 1; i < n; ++ i) {
+        int i;
+    	for (i = 1; i < n; ++ i) {
     		struct Page *p = page + i;
     		// assert(!PageReserved(p));
     		ClearPageProperty(p);
