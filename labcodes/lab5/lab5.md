@@ -177,7 +177,7 @@
 		        })
 
 9. kernel\_execve 执行 exec 系统调用，CPU 检测到系统调用后，会保存 eflags/ss/eip 等现场信息，然后根据中断号查找中断向量表，进入中断处理例程。这里要经过一系列的函数跳转，才真正进入到 exec 的系统处理函数 do\_execve 中：vector128（0x80 T\_SYSCALL） -> \_\_alltraps -> trap -> trap\_dispatch -> syscall -> sys\_exec -> do\_execve。
-10. do\_execve 首先检查用户态虚拟内存空间是否合法，如果合法且目前只有当前进程占用，则释放虚拟内存空间，把以前的资源，这里主要是内存空间给去掉，但是还保留留他的pid。其中把它的 cr3 这个⻚表基址指向 ucore 内核中的页表。然后要填入新的内容，由 load\_icode 完成。其中参数为之前的用户进程可执行二进制程序。
+10. do\_execve 首先检查用户态虚拟内存空间是否合法，如果合法且目前只有当前进程占用，则释放虚拟内存空间，把以前的资源，这里主要是内存空间给去掉，但是还保留他的pid。其中把它的 cr3 这个⻚表基址指向 ucore 内核中的页表。然后要填入新的内容，由 load\_icode 完成。其中参数为之前的用户进程可执行二进制程序。
 11. 调用 load\_icode 函数来加载应用程序，其完成的任务见上述。load\_icode 返回到 do\_exevce，do\_execve 调用 set\_proc\_name 也将返回。这样一直原路返回到\_\_alltraps函数时，接下来进入 \_\_trapret函数。
 12. \_\_trapret函数先将栈上保存的 tf 的内容 pop 给相应的寄存器，\_\_trapret 开始执行到 iret 前，esp 指向了 current -> tf.tf\_eip。tf->tf\_eip = elf->e\_entry; initproc->tf.tf\_cs = USER\_CS，所以当执行完 iret 后，就开始在用户态中执行所需函数了。
 

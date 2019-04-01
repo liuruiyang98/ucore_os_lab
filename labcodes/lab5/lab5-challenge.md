@@ -25,8 +25,19 @@
 	<img src="./实验截图/lab5-challenge-code2.png" width="900"><br>
 </div>
 
+### 实验结果：
+
 　　可以通过 make qemu 进行输出检查，可观察到输出结果为，其中有一次 COW 机制复制页面修改可写权限的处理，也有一次直接修改页表项可写权限的处理。应该是当有多个进程占用该页面时进行了修改，然后其余进程结束，仅有一个进程占用该页面时进行了修改。最终输出如下图：
 
 <div style="text-align:center;">
 	<img src="./实验截图/lab5-challenge-result.png" width="900"><br>
 </div>
+
+　　我在虚拟机上进行了 make grade 测试，发现最终的得分为：150/150，截图如下：
+<div style="text-align:center;">
+	<img src="./实验截图/lab5-challenge-grade.png" width="900"><br>
+</div>
+
+### 在cow情况下的各种状态转换：
+
+
