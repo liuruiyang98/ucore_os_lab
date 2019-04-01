@@ -511,13 +511,21 @@ copy_range(pde_t *to, pde_t *from, uintptr_t start, uintptr_t end, bool share) {
             if ((nptep = get_pte(to, start, 1)) == NULL) {
                 return -E_NO_MEM;
             }
-        uint32_t perm = (*ptep & PTE_USER);
-        //get page from ptep
-        struct Page *page = pte2page(*ptep);
-        // alloc a page for process B
-        struct Page *npage=alloc_page();
-        assert(page!=NULL);
-        assert(npage!=NULL);
+
+            // LAB5 challenge
+            uint32_t perm = (*ptep & (PTE_U | PTE_P));      // 设置权限参数为用户态只读
+            struct Page *page = pte2page(*ptep);            // 获取对应物理页
+            assert(page != NULL);
+            page_insert(to, page, start, perm);             // 拷贝页面到子进程 mm 中，并将页面设置为只读 build the map of phy addr of  nage with the linear addr start
+            page_insert(from, page, start, perm);           // 将父进程 mm 中页面设置为只读 build the map of phy addr of  nage with the linear addr start
+        
+        // uint32_t perm = (*ptep & PTE_USER);
+        // //get page from ptep
+        // struct Page *page = pte2page(*ptep);
+        // // alloc a page for process B
+        // struct Page *npage=alloc_page();
+        // assert(page!=NULL);
+        // assert(npage!=NULL);
         int ret=0;
         /* LAB5:EXERCISE2 YOUR CODE
          * replicate content of page to npage, build the map of phy addr of nage with the linear addr start
@@ -534,11 +542,11 @@ copy_range(pde_t *to, pde_t *from, uintptr_t start, uintptr_t end, bool share) {
          * (4) build the map of phy addr of  nage with the linear addr start
          */
 
-        // LAB5:EXERCISE2 201601196
-        void* src_kvaddr = page2kva(page);              // 找到父进程的内核虚拟页地址  
-        void* dst_kvaddr = page2kva(npage);             // 找到子进程的内核虚拟页地址 
-        memcpy(dst_kvaddr, src_kvaddr, PGSIZE);         // 复制父进程对应页面到子进程对应页面
-        page_insert(to, npage, start, perm);            // call get_pte to find process A's pte according to the addr start，所以start是偏移量，perm 是权限
+        // // LAB5:EXERCISE2 201601196
+        // void* src_kvaddr = page2kva(page);              // 找到父进程的内核虚拟页地址  
+        // void* dst_kvaddr = page2kva(npage);             // 找到子进程的内核虚拟页地址 
+        // memcpy(dst_kvaddr, src_kvaddr, PGSIZE);         // 复制父进程对应页面到子进程对应页面
+        // ret = page_insert(to, npage, start, perm);      // call get_pte to find process A's pte according to the addr start，所以start是偏移量，perm 是权限
         assert(ret == 0);
         }
         start += PGSIZE;

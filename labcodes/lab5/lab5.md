@@ -362,8 +362,9 @@
 
 #### 实验效果截图
 
-　　至此，lab5 练习 1-3 完成，最终 make grade 得分为 150/150，qemu 运行结果如下：  
+　　至此，lab5 练习 1-3 完成，在一开始实验时发现自己得分为 136/150，不知道哪里出现了问题，最后依次检查 lab1～lab4 发现，在 lab5 中 kern/trap/trap.c 中的 trap_dispatch 函数不能调用 print\_ticks 函数进程时间输出，这里比较坑，检查比较多时间。最终 make grade 得分为 150/150，qemu 运行结果如下：  
 <div style="text-align:center;">
+	<img src="./实验截图/lab5-error.png" width="900"><br>
 	<img src="./实验截图/lab5-result.png" width="900"><br>
 	<img src="./实验截图/lab5-grade.png" width="900"><br>
 </div>　
