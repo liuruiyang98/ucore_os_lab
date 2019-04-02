@@ -493,6 +493,96 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
         }
    }
 #endif
+    /* LAB3 EXERCISE 1:  2016011396 */
+    ptep = get_pte(mm->pgdir, addr, 1);         // 调用 get_pte 查找到二级页表入口，如果二级页表不存在则生成二级页表，全置0
+    if (ptep == NULL) {                         // 如果查找页表失败
+        // 输出参考 lab3_answer
+        cprintf("get_pte in do_pgfault failed\n");
+        goto failed;
+    } else if (*ptep == 0) {                    // 页表项全为0，则需要分配一个物理页并且将物理地址和线性地址对应
+        // no Struct Page !!!!
+        // 此处的perm应该对应 the permission of this Page which is setted in related pte
+        struct Page *page = NULL;
+        if ((page = pgdir_alloc_page(mm->pgdir, addr, perm)) == NULL) {
+            cprintf("pgdir_alloc_page in do_pgfault failed\n");
+            goto failed;
+        }
+    } else {                                            // 需要交换页面
+        // // lab5 challenge 2016011396
+        // if (*ptep & PTE_P) {                            // 如果访问地址存在，则表明此时想要访问一个存在的页面
+    	// 	if (vma->vm_flags & VM_WRITE) {             // 如果这个虚拟地址是可写的，我们需要按照 COW 机制进行处理，否则不是一个 COW 机制造成的异常
+        //         // 将 lab5 copy_range 的代码移植到此处即可
+    	// 		struct Page* pageCOW = pte2page(*ptep);             // 获取对应的页面
+        //         uint32_t permCOW = ((*ptep) & PTE_USER) | PTE_W;    // 将 ptep 页表项的权限加上用户态可读，其余不变，用于 page_insert
+    	// 		assert(pageCOW != NULL);
+    	// 		assert(pageCOW->ref > 0);                           // 其引用计数应该大于 0
+    	// 		if (pageCOW->ref > 1) {                             // 如果引用计数大于 1，则说明父子进程在共享它
+    	// 			struct Page *npage = alloc_page();
+    	// 			assert(npage != NULL);
+    	// 			void* src_kvaddr = page2kva(pageCOW);
+    	// 			void* dst_kvaddr = page2kva(npage);
+    	// 			memcpy(dst_kvaddr, src_kvaddr, PGSIZE);
+    	// 			page_insert(mm->pgdir, npage, addr, permCOW);   // 复制一份页面给这个页访问异常的进程的 mm
+    	// 			cprintf("Handled one COW fault at %x: copied\n", addr);
+    	// 		} else {                                            // 如果引用计数等于 1，说明只有当前这一个进程在使用，所以直接设置为可写就行
+    	// 			page_insert(mm->pgdir, pageCOW, addr, permCOW);
+    	// 			cprintf("Handled one COW fault at %x: reused\n", addr);
+    	// 		}
+    	// 	} else {
+    	// 		cprintf("Not a COW read-only fault.\n");
+    	// 		goto failed;
+    	// 	}
+    	// }
+        // else {
+        //     /* LAB3 EXERCISE 2:  2016011396 */
+        //     if(swap_init_ok) {                      // 如果swap 磁盘可以交换页面
+        //         struct Page *page = NULL;
+        //         int swap_flag = 1;
+        //         swap_flag = swap_in(mm, addr, &page);                   // (1)将swap读到的页面写入page
+        //         if((swap_flag != 0) || (page == NULL)) {                // 仿照 lab3_answre 练习1，增加程序的鲁棒性
+        //             cprintf("swap_in in do_pgfault failed\n");
+        //             goto failed;
+        //         }
+        //         if (page_insert(mm->pgdir, page, addr, perm) != 0) {    // (2)建立虚拟地址和物理地址之间的对应关系
+        //             cprintf("page_insert in do_pgfault failed\n");
+        //             goto failed;
+        //         }
+        //         if (swap_map_swappable(mm, addr, page, 1) != 0) {       // (3)将此页面设置为可交换的 
+        //             cprintf("swap_map_swappable in do_pgfault failed\n");
+        //             goto failed;
+        //         }
+        //         page->pra_vaddr = addr;                                 // pra_vaddr可以用来记录此物理页对应的虚拟页起始地址
+        //     } else {
+        //         cprintf("no swap_init_ok but ptep is %x, failed\n",*ptep);
+        //         goto failed;
+        //     }
+        // }
+
+        /* LAB3 EXERCISE 2:  2016011396 */
+        if(swap_init_ok) {                      // 如果swap 磁盘可以交换页面
+            struct Page *page = NULL;
+            int swap_flag = 1;
+            swap_flag = swap_in(mm, addr, &page);                   // (1)将swap读到的页面写入page
+            if((swap_flag != 0) || (page == NULL)) {                // 仿照 lab3_answre 练习1，增加程序的鲁棒性
+                cprintf("swap_in in do_pgfault failed\n");
+                goto failed;
+            }
+            if (page_insert(mm->pgdir, page, addr, perm) != 0) {    // (2)建立虚拟地址和物理地址之间的对应关系
+                cprintf("page_insert in do_pgfault failed\n");
+                goto failed;
+            }
+            if (swap_map_swappable(mm, addr, page, 1) != 0) {       // (3)将此页面设置为可交换的 
+                cprintf("swap_map_swappable in do_pgfault failed\n");
+                goto failed;
+            }
+            page->pra_vaddr = addr;                                 // pra_vaddr可以用来记录此物理页对应的虚拟页起始地址
+        } else {
+            cprintf("no swap_init_ok but ptep is %x, failed\n",*ptep);
+            goto failed;
+        }
+    }
+
+
    ret = 0;
 failed:
     return ret;
