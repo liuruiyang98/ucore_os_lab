@@ -164,7 +164,7 @@ alloc_proc(void) {
         proc->lab6_priority = 0;                // 进程优先级初始化
 
         //new in lab6-challenge
-        proc->real_run_time = 0;                // 实际运行时间初始化为0
+        // proc->real_run_time = 0;                // 实际运行时间初始化为0
     }
     return proc;
 }

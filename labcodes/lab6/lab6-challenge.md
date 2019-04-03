@@ -47,7 +47,7 @@
 	<img src="./实验截图/lab6-challenge-code4.png" width="900"><br>
 </div>
 
-　　对于 CFS 算法的 pick\_next 改动稍微大一点。其主要集中在 stride 定义修改为 vruntime。面对进程优先级为 0 的进程，vruntime = 实际运行时间 * NICE\_0\_LOAD，运行时间 = 调度周期；面对进程优先级大于 0 的进程，vruntime = 实际运行时间 * NICE\_0\_LOAD / 进程权重，运行时间 = 调度周期 * 进程权重 / 所有进程权重之和。具体实现代码如下：
+　　对于 CFS 算法的 pick\_next 改动稍微大一点。其主要集中在 stride 定义修改为 vruntime。面对进程优先级为 0 的进程，vruntime = 实际运行时间 * NICE\_0\_LOAD，运行时间 = 调度周期；面对进程优先级大于 0 的进程，vruntime = 实际运行时间 * NICE\_0\_LOAD / 进程权重，运行时间 = 调度周期 * 进程权重 / 所有进程权重之和。为了简化实现，我的调度周期取值即借用就绪队列的最大时间片。具体实现代码如下：
 <div style="text-align:center;">
 	<img src="./实验截图/lab6-challenge-code5.png" width="900"><br>
 </div>
@@ -58,3 +58,10 @@
 <div style="text-align:center;">
 	<img src="./实验截图/lab6-challenge-result.png" width="900"><br>
 </div>
+
+　　最终 lab6 challenge 练习 1 至此完成。最终提交时我已将 challenge 在 lab6 原有实现部分做的修改注释掉，具体对应如下：
+
+* proc.h 67行
+* proc.c 167行
+* sched.h 46行
+* sched.c 51行
