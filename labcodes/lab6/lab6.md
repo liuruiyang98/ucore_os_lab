@@ -284,7 +284,9 @@
 	<img src="./实验截图/lab6-练习2-code5.png" width="900"><br>
 </div>
 
-　　至此，练习 2 基本完成。
+　　至此，lab6 基本完成。
+
+---
 
 <br><br><br>
 
@@ -294,9 +296,11 @@
 
 #### 实验效果截图
 
-　　至此，lab6 练习 1-2 完成，最终 make grade 得分为 150/170，qemu 运行结果如下：  
+　　至此，lab6 练习 1-2 完成，最终 make grade 得分为 170/170，qemu 运行结果如下，同时执行 make run-priority 运行结果如下：  
 <div style="text-align:center;">
 	<img src="./实验截图/lab6-result.png" width="900"><br>
+	<img src="./实验截图/lab6-grade.png" width="900"><br>
+	<img src="./实验截图/lab6-make-run-priority.png" width="900"><br>
 </div>
 
 #### 实验 lab6 中重要的知识点

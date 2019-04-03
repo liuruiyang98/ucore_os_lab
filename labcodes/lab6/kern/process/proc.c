@@ -162,6 +162,9 @@ alloc_proc(void) {
         proc->lab6_run_pool.right = NULL;       // 基于斜堆的优先队列初始化
         proc->lab6_stride = 0;                  // 进程步进长度初始化
         proc->lab6_priority = 0;                // 进程优先级初始化
+
+        //new in lab6-challenge
+        proc->real_run_time = 0;                // 实际运行时间初始化为0
     }
     return proc;
 }
