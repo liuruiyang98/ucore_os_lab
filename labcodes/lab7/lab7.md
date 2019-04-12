@@ -306,6 +306,8 @@
 
 ---
 
+<br><br><br>
+
 ## 实验总结
 
 　　通过 lab7，我对于同步互斥机制有了深刻的理解，同时对于基于信号量和基于条件变量的同步互斥实现方法有了一定的了解。通过信号量和条件变量分析解决了哲学家问题，使我对于数据的同步和互斥使用，进程的切换有了具体的认识。
@@ -313,11 +315,10 @@
 #### 实验效果截图
 
 　　至此，lab7 练习 1-2 完成，最终 make grade 得分为 170/170，qemu 运行结果如下，同时执行 make run-priority 运行结果如下：  
+
 <div style="text-align:center;">
 	<img src="./实验截图/lab7-result.png" width="900"><br>
-	<img src="./实验截图/lab7-grade.png" width="900"><br>
-	<img src="./实验截图/lab7-make-run-matrix.png" width="900"><br>
-</div>
+</div>　
 
 #### 实验 lab7 中重要的知识点
 

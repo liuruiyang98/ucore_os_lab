@@ -279,7 +279,7 @@ trap_dispatch(struct trapframe *tf) {
         // sched_class_proc_tick(current);    // 每一次时钟中断，更新定时器，并根据参数调用调度算法
 
         // lab7 new
-        assert(current != NULL);
+        // assert(current != NULL);
         run_timer_list();                     // 调用 run_time_list 对定时器进行更新，并根据参数调用调度算法
         break;
     case IRQ_OFFSET + IRQ_COM1:
