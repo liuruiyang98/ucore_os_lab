@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "*.s": "mips",
+        "sched.h": "c",
+        "cfs_sched.h": "c"
+    },
+    "C_Cpp.errorSquiggles": "Disabled"
+}
