@@ -667,7 +667,7 @@ sfs_io_nolock(struct sfs_fs *sfs, struct sfs_inode *sin, void *buf, off_t offset
         }
         alen += size;
     }
-
+    
 out:
     *alenp = alen;
     if (offset + alen > sin->din->size) {

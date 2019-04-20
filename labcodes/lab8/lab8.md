@@ -3,7 +3,7 @@
 
 ## 练习零：填写已有实验
 
-　　借用 Meld 工具，依赖 lab6, 把 lab1-lab7 的代码填入本实验中代码中有 “LAB1” 、“LAB2” 、 “LAB3”、“LAB4”、“LAB5”、“LAB6” 和 “LAB7” 的注释相应部分。总共修改的文件有九个，分别是以下文件：  
+　　借用 Meld 工具，依赖 lab6, 把 lab1-lab7 的代码填入本实验中代码中有 “LAB1” 、“LAB2” 、 “LAB3”、“LAB4”、“LAB5”、“LAB6” 和 “LAB7” 的注释相应部分。总共修改的文件有十个，分别是以下文件：  
 
 * **default\_pmm.c**
 * **pmm.c**
@@ -12,6 +12,7 @@
 * **vmm.c**
 * **swap\_fifo.c**
 * **proc.c**
+* **monitor.c**
 * **default\_sche.c**
 * **check\_sync.c**
 
@@ -297,7 +298,11 @@
 
 #### 实验效果截图
 
-　　至此，lab8 练习 1-2 完成，最终 make grade 得分为 190/190，qemu 运行结果如下：  
+　　至此，lab8 练习 1-2 完成，最终 make grade 得分为 190/190，qemu 运行结果如下（使用了 ls 和 hello 指令）：
+
+<div style="text-align:center;">
+	<img src="./实验截图/lab8-result.png" width="900"><br>
+</div>  
 
 #### 实验 lab8 中重要的知识点
 
