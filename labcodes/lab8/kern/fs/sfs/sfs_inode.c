@@ -599,6 +599,75 @@ sfs_io_nolock(struct sfs_fs *sfs, struct sfs_inode *sin, void *buf, off_t offset
      * (3) If end position isn't aligned with the last block, Rd/Wr some content from begin to the (endpos % SFS_BLKSIZE) of the last block
 	 *       NOTICE: useful function: sfs_bmap_load_nolock, sfs_buf_op	
 	*/
+
+    // LAB8 2016011396
+    // 先处理起始的没有对齐到块的部分，再以块为单位循环处理中间的部分，最后处理末尾剩余的部分。
+    // 情况一：跨越多块
+    //    ----|----------|----------|----------|--
+    // 第一部分|             第二部分             | 第三部分
+
+    // 情况二：不足一块
+    // |   ------  |
+    //     第一部分
+
+    // 情况三：仅跨越两块
+    //     ----|-----      |
+    // 第一部分 | 第三部分
+
+    off_t blkoff = offset % SFS_BLKSIZE;                                    // 首先判断块开始位置是否对齐
+    if (blkoff != 0) {                                                      // 先处理起始的没有对齐到块的部分
+        size = (nblks != 0) ? (SFS_BLKSIZE - blkoff) : (endpos - offset);   // 计算第一个数据块的大小，如果读入的长度超过一块或跨越了一个读写块，则先读没对齐部分，否则直接读完
+
+        ret = sfs_bmap_load_nolock(sfs, sin, blkno, &ino);                  // 得到 block 对应的 inode 编号
+        if (ret != 0) {
+            goto out;
+        }
+        ret = sfs_buf_op(sfs, buf, size, ino, blkoff);                      // 根据 inode 编号读取数据。偏移为 blkoff
+        if (ret != 0) { 
+            goto out;
+        }
+
+        alen += size;               // 总共读取的大小更新
+        if (nblks == 0) {           // 如果读入的长度不超过一块，则直接读完了----情况二
+            goto out;
+        }
+        buf += size;                // 如果还有读写块，继续读，移动 buff 位置
+        blkno = blkno + 1;          // 这时候已经该读下一个block
+        nblks = nblks - 1;          // 这时候读写数据长度跨越的数据块数目减少 1。
+    }
+
+    // 以块为单位循环处理中间的部分，一次读一块直至读完
+    size = SFS_BLKSIZE;
+    while (nblks != 0) {            // 如果需要读写的数据仍然跨越多个数据块，则按块读----情况一
+        ret = sfs_bmap_load_nolock(sfs, sin, blkno, &ino);                  // 得到 block 对应的 inode 编号
+        if (ret != 0) {
+            goto out;
+        }
+        ret = sfs_block_op(sfs, buf, ino, 1);                               // 一个块一个块得读数据
+        if (ret != 0) { 
+            goto out;
+        }
+
+        // 操作同第一步
+        alen += size;
+        buf += size;
+        blkno = blkno + 1;
+        nblks = nblks - 1;
+    }
+
+    // 最后处理末尾剩余的部分，这时候 nblks = 0
+    if ((size = endpos % SFS_BLKSIZE) != 0) {       // 情况 1 和 3
+        ret = sfs_bmap_load_nolock(sfs, sin, blkno, &ino);
+        if (ret != 0) {
+            goto out;
+        }
+        ret = sfs_buf_op(sfs, buf, size, ino, 0);   // 这时候读数据没有偏移
+        if (ret != 0) { 
+            goto out;
+        }
+        alen += size;
+    }
+
 out:
     *alenp = alen;
     if (offset + alen > sin->din->size) {

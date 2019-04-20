@@ -123,6 +123,53 @@ alloc_proc(void) {
      *     uint32_t lab6_priority;                     // FOR LAB6 ONLY: the priority of process, set by lab6_set_priority(uint32_t)
      */
     //LAB8:EXERCISE2 YOUR CODE HINT:need add some code to init fs in proc_struct, ...
+
+
+        //LAB4:EXERCISE1 2016011396
+        //LAB5:EXERCISE0 2016011396 (update LAB4 steps)
+        //LAB6:EXERCISE0 2016011396 (update LAB5 steps)
+        //LAB8:EXERCISER2 2016011396(update LAB6 steps)
+        proc->state = PROC_UNINIT;              // 进程状态 state 设置为“初始”态 PROC_UNINIT
+        proc->pid = -1;                         // 进程号 pid 设置为 -1，这表示进程的标识号还没有办好
+        proc->runs = 0;                         // 进程的运行次数 runs 设置为 0
+        proc->kstack = 0;                       // 内核栈地址 kstack 初始化为 0
+        proc->need_resched = 0;                 // 是否需要被调度 need_resched 初始化为 0 （在构建好内存块后会主动对其进行修改）
+        proc->parent = NULL;                    // 父进程指针 parent 初始化为 NULL
+        proc->mm = NULL;                        // 内存管理指针 mm 初始化为 NULL
+        
+        // 初始化(清空上下文)
+        proc->context.ebp = 0;
+        proc->context.ebx = 0;
+        proc->context.ecx = 0;
+        proc->context.edi = 0;
+        proc->context.edx = 0;
+        proc->context.eip = 0;
+        proc->context.esi = 0;
+        proc->context.esp = 0;
+
+        proc->tf = NULL;
+        proc->cr3 = boot_cr3;                   // 页表起始地址 cr3 初始化为 boot_cr3，代表使用内核页目录表的基址
+        proc->flags = 0;                        // 进程标志 flags 初始化为 0
+        memset(proc->name, 0, PROC_NAME_LEN);   // 进程名 name 初始化为空字符串
+        
+        //new in lab5
+        proc->wait_state = 0;                   //  PCB 新增的条目，初始化进程等待状态
+        proc->cptr = NULL;
+        proc->yptr = NULL;
+        proc->optr = NULL;
+
+        //new in lab6
+        proc->rq = NULL;                        // 就绪态队列初始化
+        list_init(&proc->run_link);             // 初始化就绪态队列指针，参考mooc ppt RR初始化
+        proc->time_slice = 0;                   // 进程时间片清空
+        proc->lab6_run_pool.left = NULL;        // 基于斜堆的优先队列初始化
+        proc->lab6_run_pool.parent = NULL;      // 基于斜堆的优先队列初始化
+        proc->lab6_run_pool.right = NULL;       // 基于斜堆的优先队列初始化
+        proc->lab6_stride = 0;                  // 进程步进长度初始化
+        proc->lab6_priority = 0;                // 进程优先级初始化
+
+        //new in lab8
+        proc->filesp = NULL;                    // 进程打开的相关的文件信息初始化
     }
     return proc;
 }
@@ -461,7 +508,51 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
 	*    update step 1: set child proc's parent to current process, make sure current process's wait_state is 0
 	*    update step 5: insert proc_struct into hash_list && proc_list, set the relation links of process
     */
-	
+
+    //LAB4:EXERCISE2 2016011396
+    //LAB5:EXERCISE0 2016011396 (update LAB4 steps)
+    //LAB8:EXERCISE2 2016011396 (update LAB5 steps)
+    proc = alloc_proc();                        // 调用 alloc_proc 分配并初始化进程控制块
+    if (proc == NULL) {                         // 分配内存失败则返回
+        goto  fork_out;
+    }
+
+    proc->parent = current;                     // update step 1: set child proc's parent to current process
+    assert(current->wait_state == 0);           // update step 1: make sure current process's wait_state is 0
+
+    if (setup_kstack(proc) != 0) {              // 调用 setup_kstack 分配并初始化内核栈
+        goto bad_fork_cleanup_proc;             // 只用清理程序控制块
+    }             
+    // new in LAB8
+    if (copy_files(clone_flags, proc) != 0) {   // 调用 copy_file 复制父进程的文件信息
+        goto bad_fork_cleanup_kstack;
+    }
+    if (copy_mm(clone_flags, proc) != 0) {      // 调用 copy_mm 复制或共享进程内存管理结构
+        goto bad_fork_cleanup_kstack;           // 需要清理内核栈和程序控制块
+    } 
+    copy_thread(proc, stack, tf);               // 调用 copy_thread 设置进程在内核（将来也包括用户态）正常运行和调度所需的中断帧和执行上下文
+    
+    // =================================================================================================================== //
+    // 这一部分参考 lab4_result 的实现以及 https://blog.csdn.net/tangyuanzong/article/details/78692050 和 黄家辉学长往年报告中的解释完成
+    // 中断可能由时钟产生，会使得调度器工作，为了避免产生错误，需要屏蔽中断
+    bool intr_flag;
+    local_intr_save(intr_flag);                     // 屏蔽中断，intr_flag 置为 1
+    {
+        // 建立新的哈希链表
+        proc->pid = get_pid();                      // 获取当前进程PID
+        hash_proc(proc);                            // 将 proc 加入哈希链 hash_list
+
+        set_links(proc);                            // update step 5: insert proc_struct into hash_list && proc_list, set the relation links of process
+        // list_add(&proc_list, &(proc->list_link));   // 将 proc 加入进程链表 proc_list
+        // nr_process ++;                              // 进程数加一
+    }
+    local_intr_restore(intr_flag);                  // 恢复中断
+    // =================================================================================================================== //
+
+    wakeup_proc(proc);                              // 进程已经准备好执行了，把进程状态设置为“就绪”态
+    ret = proc->pid;                                // 返回当前进程的PID
+    return ret;
+			
 fork_out:
     return ret;
 
@@ -573,6 +664,194 @@ load_icode(int fd, int argc, char **kargv) {
      * (7) setup trapframe for user environment
      * (8) if up steps failed, you should cleanup the env.
      */
+
+    // LAB8 EXERCISE2 2016011396
+    if (current->mm != NULL) {
+        panic("load_icode: current->mm must be empty.\n");
+    }
+
+    int ret = -E_NO_MEM;
+    struct mm_struct *mm;
+    //(1) create a new mm for current process                                   ----- 同lab5
+    if ((mm = mm_create()) == NULL) {
+        goto bad_mm;
+    }
+    //(2) create a new PDT, and mm->pgdir= kernel virtual addr of PDT           ----- 同lab5
+    if (setup_pgdir(mm) != 0) {
+        goto bad_pgdir_cleanup_mm;
+    }
+    //(3) copy TEXT/DATA/BSS parts in binary to memory space of process         ----- 不同于lab5
+    struct Page *page;
+    //(3.1) read raw data content in file and resolve elfhdr
+    struct elfhdr tempelf;
+    struct elfhdr *elf = &tempelf;
+    ret = load_icode_read(fd, (void*)elf, sizeof(struct elfhdr), 0);    // get the entry of the program section headers of the bianry program (ELF format)
+    if (ret != 0) {
+    	goto bad_elf_cleanup_pgdir;
+    }
+    if (elf->e_magic != ELF_MAGIC) {            // This program is valid?
+        ret = -E_INVAL_ELF;
+        goto bad_elf_cleanup_pgdir;
+    }
+
+    //(3.2) read raw data content in file and resolve proghdr based on info in elfhdr
+    int phid = 0;
+    uint32_t vm_flags, perm;
+    struct proghdr tempph;
+    struct proghdr *ph = &tempph;
+    for (; phid < elf->e_phnum; phid ++) {
+        off_t phoff = elf->e_phoff + sizeof(struct proghdr) * phid;   // 循环读取程序的每个段的头部
+        ret = load_icode_read(fd, ph, sizeof(struct proghdr), phoff); // 与lab5不同在于 ph 需要读入
+        if (ret != 0) {
+            goto bad_cleanup_mmap;
+        }
+
+        // find every program section headers ----- 同lab5
+        if (ph->p_type != ELF_PT_LOAD) {
+            continue ;
+        }
+        if (ph->p_filesz > ph->p_memsz) {
+            ret = -E_INVAL_ELF;
+            goto bad_cleanup_mmap;
+        }
+        if (ph->p_filesz == 0) {
+            continue ;
+        }
+
+        //(3.3) call mm_map to build vma related to TEXT/DATA       ----- 同lab5
+        vm_flags = 0, perm = PTE_U;
+        if (ph->p_flags & ELF_PF_X) vm_flags |= VM_EXEC;
+        if (ph->p_flags & ELF_PF_W) vm_flags |= VM_WRITE;
+        if (ph->p_flags & ELF_PF_R) vm_flags |= VM_READ;
+        if (vm_flags & VM_WRITE) perm |= PTE_W;
+        if ((ret = mm_map(mm, ph->p_va, ph->p_memsz, vm_flags, NULL)) != 0) {
+            goto bad_cleanup_mmap;
+        }
+        off_t cur_offset = ph->p_offset;        // 当前偏移量
+        size_t off, size;
+        uintptr_t start = ph->p_va, end, la = ROUNDDOWN(start, PGSIZE);
+
+        ret = -E_NO_MEM;
+
+        //(3.4) call pgdir_alloc_page to allocate page for TEXT/DATA, read contents in file and copy them into the new allocated pages --- 基本同lab5
+        end = ph->p_va + ph->p_filesz;
+        while (start < end) {               // 复制数据段和代码段
+            if ((page = pgdir_alloc_page(mm->pgdir, la, perm)) == NULL) {
+                goto bad_cleanup_mmap;
+            }
+            off = start - la, size = PGSIZE - off, la += PGSIZE;
+            if (end < la) {
+                size -= la - end;
+            }
+            // memcpy(page2kva(page) + off, from, size);
+            ret = load_icode_read(fd, page2kva(page) + off, size, cur_offset);
+            if (ret != 0) {
+				goto bad_cleanup_mmap;
+			}
+            start += size, cur_offset += size;
+        }
+
+        end = ph->p_va + ph->p_memsz;
+        if (start < la) {
+            /* ph->p_memsz == ph->p_filesz */
+            if (start == end) {
+                continue ;
+            }
+            off = start + PGSIZE - la, size = PGSIZE - off;
+            if (end < la) {
+                size -= la - end;
+            }
+            memset(page2kva(page) + off, 0, size);          // 页拷贝，不用load_icode_read了
+            start += size;
+            assert((end < la && start == end) || (end >= la && start == la));
+        }
+
+        //(3.5) call pgdir_alloc_page to allocate pages for BSS, memset zero in these pages ---- 同lab5
+        while (start < end) {               // 建立BSS段
+            if ((page = pgdir_alloc_page(mm->pgdir, la, perm)) == NULL) {
+                goto bad_cleanup_mmap;
+            }
+            off = start - la, size = PGSIZE - off, la += PGSIZE;
+            if (end < la) {
+                size -= la - end;
+            }
+            memset(page2kva(page) + off, 0, size);
+            start += size;
+        }
+    }
+    sysfile_close(fd);                      // 关闭文件，加载程序结束
+
+    //(4) call mm_map to setup user stack, and put parameters into user stack       ----- 同lab5
+    vm_flags = VM_READ | VM_WRITE | VM_STACK;
+    if ((ret = mm_map(mm, USTACKTOP - USTACKSIZE, USTACKSIZE, vm_flags, NULL)) != 0) {
+        goto bad_cleanup_mmap;
+    }
+    assert(pgdir_alloc_page(mm->pgdir, USTACKTOP-PGSIZE , PTE_USER) != NULL);
+    assert(pgdir_alloc_page(mm->pgdir, USTACKTOP-2*PGSIZE , PTE_USER) != NULL);
+    assert(pgdir_alloc_page(mm->pgdir, USTACKTOP-3*PGSIZE , PTE_USER) != NULL);
+    assert(pgdir_alloc_page(mm->pgdir, USTACKTOP-4*PGSIZE , PTE_USER) != NULL);
+
+    //(5) setup current process's mm, cr3, reset pgidr (using lcr3 MARCO)           ----- 同lab5
+    mm_count_inc(mm);
+    current->mm = mm;
+    current->cr3 = PADDR(mm->pgdir);
+    lcr3(PADDR(mm->pgdir));
+
+    //(6) setup uargc and uargv in user stacks                                      ----- 不同于lab5
+    // 处理用户栈中传入的参数，其中argc对应参数个数，uargv[]对应参数的具体内容的地址
+    // 参考lab8-result
+    uint32_t argv_size = 0, i = 0;
+    for (; i < argc; i++) {
+        argv_size += strnlen(kargv[i], EXEC_MAX_ARG_LEN + 1) + 1;
+    }
+
+    uintptr_t stacktop = USTACKTOP - (argv_size/sizeof(long) + 1) * sizeof(long);
+    char** uargv=(char **)(stacktop  - argc * sizeof(char *));
+
+    argv_size = 0;
+    for (i = 0; i < argc; i ++) {                // 将所有参数取出来放置uargv
+        uargv[i] = strcpy((char *)(stacktop + argv_size ), kargv[i]);
+        argv_size +=  strnlen(kargv[i], EXEC_MAX_ARG_LEN + 1) + 1;
+    }
+
+    stacktop = (uintptr_t)uargv - sizeof(int);   // 计算当前用户栈顶
+    *(int *)stacktop = argc;
+
+    //(7) setup trapframe for user environment                                    ----- 同lab5
+    struct trapframe *tf = current->tf;
+    memset(tf, 0, sizeof(struct trapframe));
+    /* LAB5:EXERCISE1 YOUR CODE
+     * should set tf_cs,tf_ds,tf_es,tf_ss,tf_esp,tf_eip,tf_eflags
+     * NOTICE: If we set trapframe correctly, then the user level process can return to USER MODE from kernel. So
+     *          tf_cs should be USER_CS segment (see memlayout.h)
+     *          tf_ds=tf_es=tf_ss should be USER_DS segment
+     *          tf_esp should be the top addr of user stack (USTACKTOP)
+     *          tf_eip should be the entry point of this binary program (elf->e_entry)
+     *          tf_eflags should be set to enable computer to produce Interrupt
+     */
+
+    // LAB5:EXERCISE1 2016011396
+    tf->tf_cs = USER_CS;            // 用户态的代码段寄存器，需要设置状态为 USER_CS
+    tf->tf_ds = USER_DS;            // 用户态数据段寄存器，需要设置状态为 USER_DS
+    tf->tf_es = USER_DS;            // 用户态数据段寄存器，需要设置状态为 USER_DS
+    tf->tf_ss = USER_DS;            // 用户态数据段寄存器，需要设置状态为 USER_DS
+    tf->tf_esp = USTACKTOP;         // 用户态的栈指针，需要设置为 USTACKTOP（0xB0000000）
+    tf->tf_eip = elf->e_entry;      // 用户态的代码指针，需要设置为用户程序的起始地址
+    tf->tf_eflags = FL_IF;          // FL_IF为中断打开状态 Interrupt Flag (mmu.h)
+
+    ret = 0;
+
+//(8) if up steps failed, you should cleanup the env.
+out:
+    return ret;
+bad_cleanup_mmap:
+    exit_mmap(mm);
+bad_elf_cleanup_pgdir:
+    put_pgdir(mm);
+bad_pgdir_cleanup_mm:
+    mm_destroy(mm);
+bad_mm:
+    goto out;
 }
 
 // this function isn't very correct in LAB8
