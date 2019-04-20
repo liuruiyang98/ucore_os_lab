@@ -614,7 +614,7 @@ sfs_io_nolock(struct sfs_fs *sfs, struct sfs_inode *sin, void *buf, off_t offset
     //     ----|-----      |
     // 第一部分 | 第三部分
 
-    off_t blkoff = offset % SFS_BLKSIZE;                                    // 首先判断块开始位置是否对齐
+    blkoff = offset % SFS_BLKSIZE;                                          // 首先判断块开始位置是否对齐
     if (blkoff != 0) {                                                      // 先处理起始的没有对齐到块的部分
         size = (nblks != 0) ? (SFS_BLKSIZE - blkoff) : (endpos - offset);   // 计算第一个数据块的大小，如果读入的长度超过一块或跨越了一个读写块，则先读没对齐部分，否则直接读完
 
